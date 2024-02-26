@@ -1,0 +1,12 @@
+**
+!src
+!src/**
+!docker
+!docker/**
+!.dockerignore
+!.gitignore
+!docker-compose.yaml
+!Dockerfile
+!go.mod
+!main.go
+!nginx.conf

@@ -1,0 +1,8 @@
+**
+
+!src
+!src/**
+!go.mod
+!main.go
+!certs.crt
+!sh
