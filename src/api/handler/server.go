@@ -1,112 +1,78 @@
 package handler
 
 import (
-	"encoding/json"
+	"errors"
+	"github.com/gin-gonic/gin"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/core/entity"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/core/service"
-	"io/ioutil"
 	"net/http"
 	"strings"
 )
 
-type Server struct {
+type Handler struct {
 	service *service.CustomerService
-	Mux     *http.ServeMux
 }
 
-func NewServer(service *service.CustomerService) *Server {
-	return &Server{service: service}
-}
-
-func (s *Server) SetupRouter() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /clientes/{id}/transacoes", s.HandleAddTransaction)
-	mux.HandleFunc("GET /clientes/{id}/extrato", s.HandleGetTransactionHistory)
-
-	s.Mux = mux
+func NewServer(service *service.CustomerService) *Handler {
+	return &Handler{service: service}
 }
 
 type AddTransactionInput struct {
-	Value       float64                `json:"valor"`
+	Value       int                    `json:"valor"`
 	Type        entity.TransactionType `json:"tipo"`
 	Description string                 `json:"descricao"`
 }
 
-func (s *Server) HandleAddTransaction(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Erro ao ler o corpo da requisição", http.StatusBadRequest)
-		return
-	}
-
+func (s *Handler) HandleAddTransaction(c *gin.Context) {
 	var data AddTransactionInput
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		http.Error(w, "Erro ao decodificar o JSON", http.StatusBadRequest)
-		return
+	if err := c.BindJSON(&data); err != nil {
+		c.JSON(http.StatusInternalServerError, err)
 	}
 
-	customerId := r.PathValue("id")
+	customerId := c.Param("id")
+	var emptyDescription string
+	if data.Description == emptyDescription {
+		c.JSON(http.StatusUnprocessableEntity, errors.New("invalid transaction description"))
+	}
 	transaction, err := entity.NewTransaction(data.Value, data.Type, data.Description)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		return
+		c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
 	output, err := s.service.AddTransaction(customerId, *transaction)
 	if err != nil {
 		if err.Error() == "customer not found" {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
+			c.JSON(http.StatusNotFound, err)
 		} else if strings.HasPrefix(err.Error(), "invalid to proceed transaction. limit exceeded") {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
-		} else if strings.HasPrefix(err.Error(), "invalid transaction type") {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
+			c.JSON(http.StatusUnprocessableEntity, err)
+		} else if strings.HasPrefix(err.Error(), "invalid transaction") {
+			c.JSON(http.StatusUnprocessableEntity, err)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			c.JSON(http.StatusUnprocessableEntity, err)
 		}
 	}
 
-	jsonResponse, err := json.Marshal(output)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, err = w.Write(jsonResponse)
+	c.JSON(http.StatusOK, output)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		c.JSON(http.StatusInternalServerError, err)
 	}
 }
 
-func (s *Server) HandleGetTransactionHistory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	customerId := r.PathValue("id")
+func (s *Handler) HandleGetTransactionHistory(c *gin.Context) {
+	customerId := c.Param("id")
 	output, err := s.service.GetTransactionHistory(customerId)
 	if err != nil {
 		if err.Error() == "customer not found" {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
+			c.JSON(http.StatusNotFound, err)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			c.JSON(http.StatusInternalServerError, err)
 		}
 	}
 
-	jsonResponse, err := json.Marshal(output)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, err = w.Write(jsonResponse)
+	c.JSON(http.StatusOK, output)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		c.JSON(http.StatusInternalServerError, err)
 	}
 }

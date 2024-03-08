@@ -10,3 +10,4 @@
 !go.mod
 !main.go
 !nginx.conf
+!postgres.conf

@@ -7,12 +7,12 @@ import (
 
 type Customer struct {
 	ID           string        `json:"id"`
-	Limit        float64       `json:"limite"`
+	Limit        int           `json:"limite"`
 	Transactions []Transaction `json:"transactions"`
 }
 
-func (c *Customer) CalculateBalance() float64 {
-	balance := 0.0
+func (c *Customer) CalculateBalance() int {
+	balance := 0
 
 	for _, transaction := range c.Transactions {
 		if transaction.Type == Credit {

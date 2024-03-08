@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/core/entity"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/core/port"
 	"time"
@@ -12,14 +11,14 @@ type CustomerService struct {
 }
 
 type AddTransactionOutput struct {
-	Limit   float64 `json:"limite"`
-	Balance float64 `json:"saldo"`
+	Balance int `json:"saldo"`
+	Limit   int `json:"limite"`
 }
 
 type BalanceDTO struct {
-	Total       float64 `json:"total"`
-	DateHistory string  `json:"data_extrato"`
-	Limit       float64 `json:"limite"`
+	Total       int    `json:"total"`
+	DateHistory string `json:"data_extrato"`
+	Limit       int    `json:"limite"`
 }
 
 type TransactionHistory struct {
@@ -28,60 +27,39 @@ type TransactionHistory struct {
 }
 
 func (c *CustomerService) AddTransaction(customerId string, transaction entity.Transaction) (*AddTransactionOutput, error) {
-	customer, err := c.Repository.FindById(customerId)
-	if err != nil {
-		return nil, errors.New("customer not found")
-	}
-
-	err = customer.AddTransaction(transaction)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.Repository.Update(customer)
-	if err != nil {
-		return nil, err
-	}
-	err = c.Repository.AddTransaction(customer.ID, &transaction)
+	newBalance, limit, err := c.Repository.AddTransaction(customerId, &transaction)
 	if err != nil {
 		return nil, err
 	}
 
 	output := AddTransactionOutput{
-		Limit:   customer.Limit,
-		Balance: customer.CalculateBalance(),
+		Balance: newBalance,
+		Limit:   limit,
 	}
 
 	return &output, nil
 }
 
-func (c *CustomerService) sortByDate(transactions []entity.Transaction) []entity.Transaction {
-	//sort.Slice(transactions, func(i, j int) bool {
-	//	timeI, _ := time.Parse(time.RFC3339, transactions[i].CarriedOut)
-	//	timeJ, _ := time.Parse(time.RFC3339, transactions[j].CarriedOut)
-	//	return timeI.After(timeJ)
-	//})
-
-	if len(transactions) > 10 {
-		return transactions[:10]
+func (c *CustomerService) limitResults(transactions []entity.Transaction, length int) []entity.Transaction {
+	if len(transactions) > length {
+		return transactions[:length]
 	}
 	return transactions
 }
 
 func (c *CustomerService) GetTransactionHistory(customerId string) (*TransactionHistory, error) {
-	customer, err := c.Repository.FindById(customerId)
+	limit, currentBalance, transactions, err := c.Repository.FindHistoryByCustomerId(customerId)
 	if err != nil {
-		return nil, errors.New("customer not found")
+		return nil, err
 	}
 	balance := BalanceDTO{
-		Total:       customer.CalculateBalance(),
+		Total:       currentBalance,
 		DateHistory: time.Now().Format(time.RFC3339),
-		Limit:       customer.Limit,
+		Limit:       limit,
 	}
-	lastTransactions := c.sortByDate(customer.Transactions)
 	output := TransactionHistory{
 		Balance:          balance,
-		LastTransactions: lastTransactions,
+		LastTransactions: transactions,
 	}
 
 	return &output, nil

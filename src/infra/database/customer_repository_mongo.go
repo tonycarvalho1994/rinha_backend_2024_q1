@@ -15,7 +15,7 @@ type CustomerRepositoryMongo struct {
 	Ctx        context.Context
 }
 
-func (c *CustomerRepositoryMongo) CreateCustomer(id string, limit float64) error {
+func (c *CustomerRepositoryMongo) CreateCustomer(id string, limit int) error {
 	_, err := c.Collection.InsertOne(c.Ctx, entity.Customer{
 		ID:           id,
 		Limit:        limit,
@@ -40,8 +40,8 @@ func (c *CustomerRepositoryMongo) Update(customer *entity.Customer) error {
 	return err
 }
 
-func (c *CustomerRepositoryMongo) AddTransaction(customerId string, transaction *entity.Transaction) error {
-	return nil
+func (c *CustomerRepositoryMongo) AddTransaction(customerId string, transaction *entity.Transaction) (int, error) {
+	return 0, nil
 }
 
 func CreateConnection(uri, databaseName, collectionName string, ctx context.Context) (*mongo.Collection, *mongo.Client, error) {

@@ -2,6 +2,7 @@ package entity
 
 import (
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -13,21 +14,37 @@ const (
 )
 
 type Transaction struct {
-	Value       float64         `json:"valor"`
+	Value       int             `json:"valor"`
 	Type        TransactionType `json:"tipo"`
 	Description string          `json:"descricao"`
 	CarriedOut  string          `json:"realizada_em"`
 }
 
-func NewTransaction(value float64, transactionType TransactionType, description string) (*Transaction, error) {
+func validateString(transactionType TransactionType) error {
+	switch transactionType {
+	case "c", "d":
+		return nil
+	default:
+		return errors.New("invalid transaction type")
+	}
+}
+
+func NewTransaction(value int, transactionType TransactionType, description string) (*Transaction, error) {
+	if description == "" {
+		return nil, errors.New("invalid transaction, description length must be max 10")
+	}
 	if len(description) > 10 {
-		return nil, errors.New("description must have a maximum of 10 characters")
+		return nil, errors.New("invalid transaction, description length must be max 10")
+	}
+	err := validateString(transactionType)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Transaction{
 		Value:       value,
 		Type:        transactionType,
-		Description: description,
+		Description: strings.TrimSpace(description),
 		CarriedOut:  time.Now().Format(time.RFC3339),
 	}, nil
 }
