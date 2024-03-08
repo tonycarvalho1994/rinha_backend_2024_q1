@@ -28,7 +28,6 @@ services:
           memory: "360MB"
     volumes:
       - ./docker/start.sql:/docker-entrypoint-initdb.d/start.sql
-      - ./postgres.conf:/docker-entrypoint-initdb.d/postgres.config_file
     ports:
       - 5432:5432
 
