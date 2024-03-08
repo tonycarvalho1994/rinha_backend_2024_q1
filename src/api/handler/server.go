@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
-	"github.com/gin-gonic/gin"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/core/entity"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/core/service"
 	"net/http"
@@ -23,56 +23,80 @@ type AddTransactionInput struct {
 	Description string                 `json:"descricao"`
 }
 
-func (s *Handler) HandleAddTransaction(c *gin.Context) {
+func (s *Handler) HandleAddTransaction(w http.ResponseWriter, r *http.Request) {
 	var data AddTransactionInput
-	if err := c.BindJSON(&data); err != nil {
-		c.JSON(http.StatusInternalServerError, err)
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	customerId := c.Param("id")
+	customerId := r.PathValue("id")
 	var emptyDescription string
 	if data.Description == emptyDescription {
-		c.JSON(http.StatusUnprocessableEntity, errors.New("invalid transaction description"))
+		http.Error(w, errors.New("invalid transaction description").Error(), http.StatusUnprocessableEntity)
+		return
 	}
 	transaction, err := entity.NewTransaction(data.Value, data.Type, data.Description)
 	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, err)
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
 	}
 
 	output, err := s.service.AddTransaction(customerId, *transaction)
 	if err != nil {
 		if err.Error() == "customer not found" {
-			c.JSON(http.StatusNotFound, err)
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
 		} else if strings.HasPrefix(err.Error(), "invalid to proceed transaction. limit exceeded") {
-			c.JSON(http.StatusUnprocessableEntity, err)
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
 		} else if strings.HasPrefix(err.Error(), "invalid transaction") {
-			c.JSON(http.StatusUnprocessableEntity, err)
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
 		} else {
-			c.JSON(http.StatusUnprocessableEntity, err)
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
 		}
 	}
-
-	c.JSON(http.StatusOK, output)
-
+	jsonBytes, err := json.Marshal(output)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 }
 
-func (s *Handler) HandleGetTransactionHistory(c *gin.Context) {
-	customerId := c.Param("id")
+func (s *Handler) HandleGetTransactionHistory(w http.ResponseWriter, r *http.Request) {
+	customerId := r.PathValue("id")
 	output, err := s.service.GetTransactionHistory(customerId)
 	if err != nil {
 		if err.Error() == "customer not found" {
-			c.JSON(http.StatusNotFound, err)
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{}`))
+			return
 		} else {
-			c.JSON(http.StatusInternalServerError, err)
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{}`))
+			return
 		}
 	}
-
-	c.JSON(http.StatusOK, output)
-
+	jsonBytes, err := json.Marshal(output)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 }

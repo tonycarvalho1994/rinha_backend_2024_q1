@@ -1,18 +1,17 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/api/handler"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/core/service"
 	"github.com/tonycarvalho1994/rinha_backend_2024_q1/src/infra/database"
+	"log"
+	"net/http"
 )
 
 var pool *pgxpool.Pool
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
-
 	pool, _ = database.InitDB()
 	defer pool.Close()
 	repository := database.CustomerRepositoryPSQL{Pool: pool}
@@ -22,20 +21,12 @@ func main() {
 	}
 
 	_handler := handler.NewServer(&customerService)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /clientes/{id}/extrato", _handler.HandleGetTransactionHistory)
+	mux.HandleFunc("POST /clientes/{id}/transacoes", _handler.HandleAddTransaction)
 
-	r := gin.New()
-	r.Use(gin.Recovery())
-
-	r.GET(
-		"/clientes/:id/extrato",
-		_handler.HandleGetTransactionHistory,
-	)
-	r.POST(
-		"/clientes/:id/transacoes",
-		_handler.HandleAddTransaction,
-	)
-	err := r.Run("0.0.0.0:8080")
+	err := http.ListenAndServe(":8080", mux)
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
 }

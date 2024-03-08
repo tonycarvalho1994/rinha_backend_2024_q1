@@ -40,13 +40,6 @@ func (c *CustomerService) AddTransaction(customerId string, transaction entity.T
 	return &output, nil
 }
 
-func (c *CustomerService) limitResults(transactions []entity.Transaction, length int) []entity.Transaction {
-	if len(transactions) > length {
-		return transactions[:length]
-	}
-	return transactions
-}
-
 func (c *CustomerService) GetTransactionHistory(customerId string) (*TransactionHistory, error) {
 	limit, currentBalance, transactions, err := c.Repository.FindHistoryByCustomerId(customerId)
 	if err != nil {

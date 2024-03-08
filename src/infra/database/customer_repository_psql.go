@@ -38,18 +38,6 @@ type CustomerRepositoryPSQL struct {
 	Pool *pgxpool.Pool
 }
 
-func (c *CustomerRepositoryPSQL) CreateCustomer(id string, limit int) error {
-	return nil
-}
-
-func (c *CustomerRepositoryPSQL) FindById(id string) (*entity.Customer, error) {
-	return nil, nil
-}
-
-func (c *CustomerRepositoryPSQL) Update(customer *entity.Customer) error {
-	return nil
-}
-
 func (c *CustomerRepositoryPSQL) AddTransaction(customerId string, transaction *entity.Transaction) (int, int, error) {
 	newBalance := 0
 	tx, err := c.Pool.Begin(context.Background())
@@ -66,7 +54,7 @@ func (c *CustomerRepositoryPSQL) AddTransaction(customerId string, transaction *
 
 	var limit int
 	var currentBalance int
-	err = tx.QueryRow(context.Background(), "SELECT limite, saldo FROM customers WHERE id=$1 FOR UPDATE", customerId).Scan(&limit, &currentBalance)
+	err = tx.QueryRow(context.Background(), SelectBalanceQuery, customerId).Scan(&limit, &currentBalance)
 	if err != nil {
 		return newBalance, 0, errors.New("customer not found")
 	}
@@ -83,29 +71,18 @@ func (c *CustomerRepositoryPSQL) AddTransaction(customerId string, transaction *
 		}
 	}
 
-	_, err = tx.Exec(context.Background(), "INSERT INTO transactions (customer_id, valor, tipo, descricao, realizada_em) VALUES ($1, $2, $3, $4, $5)",
+	_, err = tx.Exec(context.Background(), InsertTransactionQuery,
 		customerId, transaction.Value, transaction.Type, transaction.Description, time.Now())
 	if err != nil {
 		return newBalance, 0, err
 	}
 
-	_, err = tx.Exec(context.Background(), "UPDATE customers SET saldo=$1 WHERE id=$2", newBalance, customerId)
+	_, err = tx.Exec(context.Background(), UpdateBalanceQuery, newBalance, customerId)
 	if err != nil {
 		return newBalance, 0, err
 	}
 
 	return newBalance, limit, tx.Commit(context.Background())
-}
-
-func (c *CustomerRepositoryPSQL) GetBalance(customerId string) (int, error) {
-	var currentBalance int
-
-	err := c.Pool.QueryRow(context.Background(), "SELECT COALESCE(SUM(CASE WHEN tipo='c' THEN valor ELSE -valor END), 0) FROM transactions WHERE customer_id=$1", customerId).Scan(&currentBalance)
-	if err != nil {
-		return currentBalance, errors.New("error while getting customer balance: " + err.Error())
-	}
-
-	return currentBalance, nil
 }
 
 func (c *CustomerRepositoryPSQL) FindHistoryByCustomerId(customerId string) (int, int, []entity.Transaction, error) {
@@ -117,13 +94,13 @@ func (c *CustomerRepositoryPSQL) FindHistoryByCustomerId(customerId string) (int
 
 	var limit int
 	var currentBalance int
-	err = tx.QueryRow(context.Background(), "SELECT limite, saldo FROM customers WHERE id=$1 FOR UPDATE", customerId).Scan(&limit, &currentBalance)
+	err = tx.QueryRow(context.Background(), SelectBalanceQuery, customerId).Scan(&limit, &currentBalance)
 	if err != nil {
 		return 0, 0, nil, errors.New("customer not found")
 	}
 
 	var transactions []entity.Transaction
-	rows, err := tx.Query(context.Background(), "SELECT valor, tipo, descricao, realizada_em FROM transactions WHERE customer_id = $1 ORDER BY realizada_em DESC LIMIT 10", customerId)
+	rows, err := tx.Query(context.Background(), GetHistoryLimit10Query, customerId)
 	if err != nil {
 		return 0, 0, nil, err
 	}
