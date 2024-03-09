@@ -10,21 +10,12 @@ RUN update-ca-certificates
 
 COPY . .
 
-#ENV GOPROXY=direct
 ENV CGO_ENABLED=0
 RUN go mod tidy
-RUN go build -o /srv/server -a -ldflags '-extldflags "-static" -s -w'
-
-EXPOSE 8080
-
-ENTRYPOINT [ "/srv/server" ]
+RUN GOARCH=amd64 GOOS=linux go build -o /srv/server -a -ldflags '-extldflags "-static" -s -w'
 
 FROM scratch
-#
-## Copiando o binário compilado da primeira etapa
+WORKDIR /
 COPY --from=builder /srv/server /server
-#
 EXPOSE 8080
-#
-## Definindo o comando padrão a ser executado
 CMD ["/server"]
